@@ -94,11 +94,71 @@ html[data-color-mode="dark"] .markdown-body a {
   color: #58a6ff !important;
 }
 
-/* Clean minimal document container */
-.container, .container-lg {
-  max-width: 920px !important;
-  margin: 0 auto !important;
-  padding: 20px 24px !important;
+/* Strip Grip's phantom GitHub repo page chrome, invisible right sidebar grid, and nested padding */
+html, body, .page {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  min-height: 100vh !important;
+}
+
+.preview-page {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.container,
+.container-lg,
+.container-xl,
+.new-discussion-timeline,
+.repository-content {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.Layout,
+.Layout-main {
+  display: block !important;
+  grid-template-columns: 1fr !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#readme,
+.Box,
+.Box--responsive {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#readme .Box-header,
+.Box-header {
+  display: none !important;
+}
+
+#readme .Box-body,
+.Box-body {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+#grip-content.markdown-body,
+.markdown-body.entry-content {
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 24px 32px !important;
+  box-sizing: border-box !important;
 }
 
 /* GitHub Alert / Callout Styling */
@@ -184,8 +244,6 @@ GFM_PARITY_JS = """
   };
   applyTheme(themePref);
 
-  // Transform any raw blockquote [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION]
-  // in case offline fallback or older parser was used
   const alertTypes = {
     NOTE: { cls: "markdown-alert-note", label: "Note" },
     TIP: { cls: "markdown-alert-tip", label: "Tip" },
@@ -194,81 +252,109 @@ GFM_PARITY_JS = """
     CAUTION: { cls: "markdown-alert-caution", label: "Caution" }
   };
 
-  document.querySelectorAll(".markdown-body blockquote").forEach((bq) => {
-    const firstP = bq.querySelector("p:first-child");
-    if (!firstP) return;
-    const match = firstP.innerHTML.match(/^\\s*\\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\\]\\s*(?:<br\\s*\\/?>|\\n)?/i);
-    if (!match) return;
-    const key = match[1].toUpperCase();
-    const info = alertTypes[key];
-    if (!info) return;
+  let isEnhancing = false;
+  const enhanceContent = () => {
+    if (isEnhancing) return;
+    isEnhancing = true;
+    try {
+      // Transform any raw blockquote [!NOTE] / [!TIP] / [!IMPORTANT] / [!WARNING] / [!CAUTION]
+      document.querySelectorAll(".markdown-body blockquote").forEach((bq) => {
+        const firstP = bq.querySelector("p:first-child");
+        if (!firstP) return;
+        const match = firstP.innerHTML.match(/^\\s*\\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\\]\\s*(?:<br\\s*\\/?>|\\n)?/i);
+        if (!match) return;
+        const key = match[1].toUpperCase();
+        const info = alertTypes[key];
+        if (!info) return;
 
-    firstP.innerHTML = firstP.innerHTML.slice(match[0].length);
-    const wrapper = document.createElement("div");
-    wrapper.className = "markdown-alert " + info.cls;
-    const titleEl = document.createElement("p");
-    titleEl.className = "markdown-alert-title";
-    titleEl.textContent = info.label;
-    wrapper.appendChild(titleEl);
-    while (bq.firstChild) {
-      wrapper.appendChild(bq.firstChild);
-    }
-    bq.replaceWith(wrapper);
-  });
-
-  // Mermaid diagram support
-  const mermaidBlocks = document.querySelectorAll(
-    'pre[lang="mermaid"], div.highlight-source-mermaid pre, code.language-mermaid'
-  );
-  if (mermaidBlocks.length > 0) {
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
-    script.onload = () => {
-      const mTheme = window.__firnCurrentTheme === "dark" ? "dark" : "default";
-      window.mermaid.initialize({ startOnLoad: false, theme: mTheme, securityLevel: "loose" });
-      mermaidBlocks.forEach((block, idx) => {
-        const container = block.closest("div.highlight-source-mermaid") || block.closest("pre") || block;
-        const source = block.textContent || "";
-        const target = document.createElement("div");
-        target.className = "mermaid firn-mermaid-diagram";
-        target.id = "firn-mermaid-" + idx;
-        target.textContent = source;
-        container.replaceWith(target);
+        firstP.innerHTML = firstP.innerHTML.slice(match[0].length);
+        const wrapper = document.createElement("div");
+        wrapper.className = "markdown-alert " + info.cls;
+        const titleEl = document.createElement("p");
+        titleEl.className = "markdown-alert-title";
+        titleEl.textContent = info.label;
+        wrapper.appendChild(titleEl);
+        while (bq.firstChild) {
+          wrapper.appendChild(bq.firstChild);
+        }
+        bq.replaceWith(wrapper);
       });
-      window.mermaid.run({ querySelector: ".firn-mermaid-diagram" });
-    };
-    document.head.appendChild(script);
-  }
 
-  // KaTeX math support for inline ($...$) and block ($$...$$) / GitHub math-renderer tags
-  const hasMath = document.querySelector("math-renderer, .js-inline-math, .js-display-math, code.language-math")
-    || /\\$\\$[\\s\\S]+?\\$\\$|\\$[^$\\n]+?\\$/.test(document.querySelector(".markdown-body")?.innerHTML || "");
-  if (hasMath) {
-    const katexCss = document.createElement("link");
-    katexCss.rel = "stylesheet";
-    katexCss.href = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css";
-    document.head.appendChild(katexCss);
+      // Mermaid diagram support
+      const mermaidBlocks = document.querySelectorAll(
+        'pre[lang="mermaid"], div.highlight-source-mermaid pre, code.language-mermaid'
+      );
+      if (mermaidBlocks.length > 0) {
+        const renderMermaid = () => {
+          const mTheme = window.__firnCurrentTheme === "dark" ? "dark" : "default";
+          window.mermaid.initialize({ startOnLoad: false, theme: mTheme, securityLevel: "loose" });
+          mermaidBlocks.forEach((block, idx) => {
+            const container = block.closest("div.highlight-source-mermaid") || block.closest("pre") || block;
+            const source = block.textContent || "";
+            const target = document.createElement("div");
+            target.className = "mermaid firn-mermaid-diagram";
+            target.id = "firn-mermaid-" + Date.now() + "-" + idx;
+            target.textContent = source;
+            container.replaceWith(target);
+          });
+          window.mermaid.run({ querySelector: ".firn-mermaid-diagram" });
+        };
+        if (window.mermaid) {
+          renderMermaid();
+        } else {
+          const script = document.createElement("script");
+          script.src = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+          script.onload = renderMermaid;
+          document.head.appendChild(script);
+        }
+      }
 
-    const katexJs = document.createElement("script");
-    katexJs.src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js";
-    katexJs.onload = () => {
-      const autoRender = document.createElement("script");
-      autoRender.src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js";
-      autoRender.onload = () => {
-        const body = document.querySelector(".markdown-body") || document.body;
-        window.renderMathInElement(body, {
-          delimiters: [
-            { left: "$$", right: "$$", display: true },
-            { left: "$", right: "$", display: false },
-            { left: "\\\\(", right: "\\\\)", display: false },
-            { left: "\\\\[", right: "\\\\]", display: true }
-          ],
-          throwOnError: false
-        });
-      };
-      document.head.appendChild(autoRender);
-    };
-    document.head.appendChild(katexJs);
+      // KaTeX math support for inline ($...$) and block ($$...$$) / GitHub math-renderer tags
+      const hasMath = document.querySelector("math-renderer, .js-inline-math, .js-display-math, code.language-math")
+        || /\\$\\$[\\s\\S]+?\\$\\$|\\$[^$\\n]+?\\$/.test(document.querySelector(".markdown-body")?.innerHTML || "");
+      if (hasMath) {
+        const runKatex = () => {
+          const body = document.querySelector(".markdown-body") || document.body;
+          window.renderMathInElement(body, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+              { left: "\\\\(", right: "\\\\)", display: false },
+              { left: "\\\\[", right: "\\\\]", display: true }
+            ],
+            throwOnError: false
+          });
+        };
+        if (window.renderMathInElement) {
+          runKatex();
+        } else {
+          const katexCss = document.createElement("link");
+          katexCss.rel = "stylesheet";
+          katexCss.href = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css";
+          document.head.appendChild(katexCss);
+
+          const katexJs = document.createElement("script");
+          katexJs.src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js";
+          katexJs.onload = () => {
+            const autoRender = document.createElement("script");
+            autoRender.src = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js";
+            autoRender.onload = runKatex;
+            document.head.appendChild(autoRender);
+          };
+          document.head.appendChild(katexJs);
+        }
+      }
+    } finally {
+      isEnhancing = false;
+    }
+  };
+
+  enhanceContent();
+
+  const gripArticle = document.getElementById("grip-content");
+  if (gripArticle && window.MutationObserver) {
+    const observer = new MutationObserver(() => enhanceContent());
+    observer.observe(gripArticle, { childList: true });
   }
 
   // Keyboard navigation & shortcuts inside native Firn window
