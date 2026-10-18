@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "firn"
+version = "0.1.0"
+description = "Instant GitHub-Flavored Markdown (GFM) native desktop document viewer"
+readme = "README.md"
+authors = [{ name = "SpanishSyntax", email = "spanishsyntax@pyritelabs.cc" }]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["markdown", "gfm", "github", "viewer", "grip", "pywebview", "webkitgtk", "nixos", "frost"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Environment :: X11 Applications :: GTK",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Topic :: Documentation",
+  "Topic :: Text Processing :: Markup :: Markdown",
+  "Topic :: Utilities",
+]
+dependencies = []
+
+[project.scripts]
+firn = "firn.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["firn*"]
