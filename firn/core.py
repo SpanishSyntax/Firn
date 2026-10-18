@@ -45,6 +45,7 @@ class RenderConfig:
     pass_path: str | None = None
     no_inline: bool = True
     frameless: bool = False
+    github_mode: bool = False
     theme: str = "auto"  # auto, dark, light
     width: int = 980
     height: int = 860

@@ -27,6 +27,7 @@ def print_help():
 {ui.blue("Options:")}
   -p, --port PORT        Bind specific localhost port (default: random ephemeral port)
   --host HOST            Bind address for grip daemon (default: 127.0.0.1)
+  -g, --github-mode      Render with GitHub repository Box chrome & page layout
   -w, --wide             Render wide GitHub document container (--wide)
   -u, --user-content     Render as GitHub user-content (issues/comments mode)
   -c, --context REPO     Repository context (e.g. SpanishSyntax/Firn) for autolinks
@@ -49,6 +50,7 @@ def print_help():
 
 {ui.blue("Examples:")}
   {app} README.md                      # Open README.md in native WebKitGTK window
+  {app} README.md -g                   # Open with full GitHub repository Box layout
   {app} docs/architecture.md --dark    # Render in GitHub Dark mode
   {app} SPEC.md --frameless --wide     # Frameless wide native window
   {app} .                              # Auto-discover or pick Markdown file in current dir
@@ -226,6 +228,15 @@ def main():
         help="Local loopback address to bind.",
     )
     parser.add_argument(
+        "-g",
+        "--github-mode",
+        "--github",
+        dest="github_mode",
+        action="store_true",
+        default=bool(user_cfg.get("github_mode", False)),
+        help="Render with GitHub repository Box chrome & page layout.",
+    )
+    parser.add_argument(
         "-w",
         "--wide",
         action="store_true",
@@ -349,6 +360,7 @@ def main():
         pass_path=args.pass_path,
         no_inline=args.no_inline,
         frameless=args.frameless,
+        github_mode=args.github_mode,
         theme=args.theme,
         width=args.width,
         height=args.height,

@@ -49,6 +49,7 @@ Usage: firn <path-to-markdown> [options]
 Options:
   -p, --port PORT        Bind specific localhost port (default: random ephemeral port)
   --host HOST            Bind address for grip daemon (default: 127.0.0.1)
+  -g, --github-mode      Render with GitHub repository Box chrome & page layout
   -w, --wide             Render wide GitHub document container (--wide)
   -u, --user-content     Render as GitHub user-content (issues/comments mode)
   -c, --context REPO     Repository context (e.g. SpanishSyntax/Firn) for autolinks
@@ -76,6 +77,7 @@ Options:
 | :--- | :--- |
 | `q` / `Esc` / `Ctrl+W` | Close window & terminate ephemeral `grip` daemon |
 | `t` | Toggle between GitHub Dark and Light themes |
+| `g` | Toggle between Clean Document Mode and GitHub Box Layout |
 | `r` / `F5` / `Ctrl+R` | Reload Markdown document |
 | `Ctrl + +` / `Ctrl + -` | Zoom in / Zoom out |
 | `Ctrl + 0` | Reset zoom level to 100% |

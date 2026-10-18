@@ -94,32 +94,34 @@ html[data-color-mode="dark"] .markdown-body a {
   color: #58a6ff !important;
 }
 
-/* Strip Grip's phantom GitHub repo page chrome, invisible right sidebar grid, and nested padding */
-html, body, .page {
+/* Default Clean Document Mode: strip Grip's phantom GitHub sidebar grid and nested Box chrome */
+html:not([data-firn-layout="github"]),
+html:not([data-firn-layout="github"]) body,
+html:not([data-firn-layout="github"]) .page {
   margin: 0 !important;
   padding: 0 !important;
   width: 100% !important;
   min-height: 100vh !important;
 }
 
-.preview-page {
+html:not([data-firn-layout="github"]) .preview-page {
   margin: 0 !important;
   padding: 0 !important;
 }
 
-.container,
-.container-lg,
-.container-xl,
-.new-discussion-timeline,
-.repository-content {
+html:not([data-firn-layout="github"]) .container,
+html:not([data-firn-layout="github"]) .container-lg,
+html:not([data-firn-layout="github"]) .container-xl,
+html:not([data-firn-layout="github"]) .new-discussion-timeline,
+html:not([data-firn-layout="github"]) .repository-content {
   max-width: 100% !important;
   width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
-.Layout,
-.Layout-main {
+html:not([data-firn-layout="github"]) .Layout,
+html:not([data-firn-layout="github"]) .Layout-main {
   display: block !important;
   grid-template-columns: 1fr !important;
   width: 100% !important;
@@ -128,9 +130,9 @@ html, body, .page {
   padding: 0 !important;
 }
 
-#readme,
-.Box,
-.Box--responsive {
+html:not([data-firn-layout="github"]) #readme,
+html:not([data-firn-layout="github"]) .Box,
+html:not([data-firn-layout="github"]) .Box--responsive {
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -140,20 +142,20 @@ html, body, .page {
   max-width: 100% !important;
 }
 
-#readme .Box-header,
-.Box-header {
+html:not([data-firn-layout="github"]) #readme .Box-header,
+html:not([data-firn-layout="github"]) .Box-header {
   display: none !important;
 }
 
-#readme .Box-body,
-.Box-body {
+html:not([data-firn-layout="github"]) #readme .Box-body,
+html:not([data-firn-layout="github"]) .Box-body {
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;
 }
 
-#grip-content.markdown-body,
-.markdown-body.entry-content {
+html:not([data-firn-layout="github"]) #grip-content.markdown-body,
+html:not([data-firn-layout="github"]) .markdown-body.entry-content {
   max-width: 100% !important;
   width: 100% !important;
   margin: 0 !important;
@@ -231,6 +233,8 @@ GFM_PARITY_JS = """
   window.__firnEnhanced = true;
 
   const themePref = __FIRN_THEME__;
+  const initialLayout = __FIRN_LAYOUT__;
+
   const applyTheme = (mode) => {
     let resolved = mode;
     if (mode === "auto") {
@@ -242,7 +246,14 @@ GFM_PARITY_JS = """
     document.documentElement.setAttribute("data-dark-theme", "dark");
     window.__firnCurrentTheme = resolved;
   };
+
+  const applyLayout = (layout) => {
+    document.documentElement.setAttribute("data-firn-layout", layout);
+    window.__firnCurrentLayout = layout;
+  };
+
   applyTheme(themePref);
+  applyLayout(initialLayout);
 
   const alertTypes = {
     NOTE: { cls: "markdown-alert-note", label: "Note" },
@@ -371,6 +382,9 @@ GFM_PARITY_JS = """
     } else if (!inInput && ev.key === "t" && !ev.ctrlKey && !ev.metaKey) {
       const next = window.__firnCurrentTheme === "dark" ? "light" : "dark";
       applyTheme(next);
+    } else if (!inInput && ev.key === "g" && !ev.ctrlKey && !ev.metaKey) {
+      const nextLayout = window.__firnCurrentLayout === "github" ? "clean" : "github";
+      applyLayout(nextLayout);
     } else if ((!inInput && ev.key === "r" && !ev.ctrlKey) || ev.key === "F5" || (ev.ctrlKey && ev.key === "r")) {
       ev.preventDefault();
       window.location.reload();
@@ -443,12 +457,14 @@ def launch_viewer(orchestrator: GripOrchestrator, config: RenderConfig):
     )
     bridge.attach_window(window)
 
+    layout_mode = "github" if config.github_mode else "clean"
+
     def _on_loaded():
         try:
             window.load_css(GFM_PARITY_CSS)
             js_payload = GFM_PARITY_JS.replace(
                 "__FIRN_THEME__", json.dumps(config.theme)
-            )
+            ).replace("__FIRN_LAYOUT__", json.dumps(layout_mode))
             window.evaluate_js(js_payload)
         except Exception:
             pass
@@ -466,7 +482,7 @@ def launch_viewer(orchestrator: GripOrchestrator, config: RenderConfig):
         symbol="🪟",
     )
     ui.info(
-        "Shortcuts: [q / Esc] Close  •  [t] Toggle Dark/Light  •  [r / F5] Reload  •  [Ctrl +/-] Zoom",
+        "Shortcuts: [q / Esc] Close  •  [t] Theme  •  [g] GitHub Box Layout  •  [r / F5] Reload  •  [Ctrl +/-] Zoom",
         symbol="💡",
     )
 
