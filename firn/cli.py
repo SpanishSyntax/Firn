@@ -1,10 +1,13 @@
 """Entrypoint and CLI argument parser for Firn."""
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
+from typing import Any
 
 from firn import __version__
 from firn.core import GripOrchestrator, GripStartupError, RenderConfig
@@ -62,6 +65,57 @@ def handle_color_args():
             ui.set_color_mode(sys.argv[1:][i + 1])
 
 
+def load_user_config() -> dict[str, Any]:
+    """Loads optional user defaults from ~/.config/firn/firn.toml."""
+    xdg_cfg = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    cfg_path = xdg_cfg / "firn" / "firn.toml"
+    if not cfg_path.is_file():
+        return {}
+    try:
+        data = tomllib.loads(cfg_path.read_text(encoding="utf-8"))
+        if isinstance(data.get("general"), dict):
+            merged = dict(data)
+            general = merged.pop("general")
+            return {**general, **merged}
+        return data
+    except Exception as exc:
+        ui.warn(f"Failed to parse {cfg_path}: {exc}")
+        return {}
+
+
+def clear_grip_cache() -> int:
+    grip_bin = shutil.which("grip")
+    if not grip_bin:
+        ui.error("Could not find 'grip' executable in PATH.")
+        return 1
+    with ui.spinner("Clearing cached GitHub CSS assets..."):
+        res = subprocess.run([grip_bin, "--clear"], capture_output=True, text=True)
+    if res.returncode == 0:
+        ui.success("Cleared cached GitHub styles and assets.")
+        return 0
+    ui.error_panel("Failed to Clear Cache", res.stderr.strip() or "Unknown grip error.")
+    return res.returncode
+
+
+def _scan_recursive_markdown(root: Path) -> list[Path]:
+    """Finds Markdown files across subdirectories (excluding hidden and build dirs)."""
+    excluded = {".git", ".direnv", "node_modules", "__pycache__", "build", "dist", "result"}
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+        dirnames[:] = [
+            d for d in dirnames if d not in excluded and not d.startswith(".")
+        ]
+        dp = Path(dirpath)
+        for fn in filenames:
+            if fn.startswith("."):
+                continue
+            p = dp / fn
+            if p.suffix.lower() in (".md", ".markdown", ".mdown"):
+                found.append(p.resolve())
+    found.sort(key=lambda p: (0 if p.name.lower() == "readme.md" else 1, str(p).lower()))
+    return found
+
+
 def discover_markdown_target(raw_path: str | None) -> Path:
     """Resolves a target Markdown path or offers an interactive picker matching Folio."""
     if raw_path:
@@ -86,6 +140,39 @@ def discover_markdown_target(raw_path: str | None) -> Path:
     )
 
     if not md_files:
+        if sys.stdin.isatty():
+            action = ui.select(
+                f"No Markdown document found in '{search_dir.name}'. What would you like to do?",
+                [
+                    ("scan", "Search subdirectories recursively for *.md files"),
+                    ("help", "Show help and command usage"),
+                    ("clear", "Clear cached GitHub CSS assets (grip --clear)"),
+                    ("exit", "Exit"),
+                ],
+            )
+            if action == "scan":
+                nested = _scan_recursive_markdown(search_dir)
+                if not nested:
+                    ui.error(f"No Markdown files found under '{search_dir}'.")
+                    sys.exit(1)
+                options = [
+                    (
+                        str(f),
+                        f"📄 {f.relative_to(search_dir)}",
+                        f"{f.stat().st_size:,} bytes",
+                    )
+                    for f in nested
+                ]
+                chosen = ui.select("Select a Markdown document to open:", options)
+                return Path(chosen).resolve()
+            elif action == "help":
+                print_help()
+                sys.exit(0)
+            elif action == "clear":
+                sys.exit(clear_grip_cache())
+            else:
+                sys.exit(0)
+
         ui.error(f"No Markdown files found in '{search_dir}'. Specify one: firn <file.md>")
         sys.exit(1)
 
@@ -105,20 +192,6 @@ def discover_markdown_target(raw_path: str | None) -> Path:
     return md_files[0].resolve()
 
 
-def clear_grip_cache() -> int:
-    grip_bin = shutil.which("grip")
-    if not grip_bin:
-        ui.error("Could not find 'grip' executable in PATH.")
-        return 1
-    with ui.spinner("Clearing cached GitHub CSS assets..."):
-        res = subprocess.run([grip_bin, "--clear"], capture_output=True, text=True)
-    if res.returncode == 0:
-        ui.success("Cleared cached GitHub styles and assets.")
-        return 0
-    ui.error_panel("Failed to Clear Cache", res.stderr.strip() or "Unknown grip error.")
-    return res.returncode
-
-
 def main():
     handle_color_args()
     raw_args = sys.argv[1:]
@@ -131,6 +204,8 @@ def main():
         print(f"{ui.badge()} {ui.bold(f'v{__version__}')}")
         sys.exit(0)
 
+    user_cfg = load_user_config()
+
     parser = argparse.ArgumentParser(prog="firn", add_help=False)
     parser.add_argument(
         "path",
@@ -138,21 +213,48 @@ def main():
         default=None,
         help="Path to the Markdown document (or directory) to preview.",
     )
-    parser.add_argument("-p", "--port", type=int, default=0, help="Local port to bind (0 = ephemeral).")
-    parser.add_argument("--host", default="127.0.0.1", help="Local loopback address to bind.")
-    parser.add_argument("-w", "--wide", action="store_true", help="Render wide GitHub container.")
+    parser.add_argument(
+        "-p",
+        "--port",
+        type=int,
+        default=int(user_cfg.get("port", 0)),
+        help="Local port to bind (0 = ephemeral).",
+    )
+    parser.add_argument(
+        "--host",
+        default=str(user_cfg.get("host", "127.0.0.1")),
+        help="Local loopback address to bind.",
+    )
+    parser.add_argument(
+        "-w",
+        "--wide",
+        action="store_true",
+        default=bool(user_cfg.get("wide", False)),
+        help="Render wide GitHub container.",
+    )
     parser.add_argument(
         "-u",
         "--user-content",
         action="store_true",
+        default=bool(user_cfg.get("user_content", False)),
         help="Render as GitHub user-content (comments/issues).",
     )
-    parser.add_argument("-c", "--context", default=None, help="Repository context (owner/repo).")
-    parser.add_argument("-t", "--title", default=None, help="Custom window and document title.")
+    parser.add_argument(
+        "-c",
+        "--context",
+        default=user_cfg.get("context"),
+        help="Repository context (owner/repo).",
+    )
+    parser.add_argument(
+        "-t",
+        "--title",
+        default=user_cfg.get("title"),
+        help="Custom window and document title.",
+    )
     parser.add_argument(
         "--theme",
         choices=["auto", "dark", "light"],
-        default="auto",
+        default=str(user_cfg.get("theme", "auto")),
         help="Color theme mode (auto, dark, light).",
     )
     parser.add_argument(
@@ -172,18 +274,37 @@ def main():
     parser.add_argument(
         "--frameless",
         action="store_true",
+        default=bool(user_cfg.get("frameless", False)),
         help="Launch pywebview in a frameless minimal desktop window.",
     )
-    parser.add_argument("--width", type=int, default=980, help="Window width in pixels.")
-    parser.add_argument("--height", type=int, default=860, help="Window height in pixels.")
-    parser.add_argument("--token", default=None, help="GitHub Personal Access Token.")
-    parser.add_argument("--pass-path", default=None, help="Password-store entry path for GitHub token.")
-    parser.add_argument("--api-url", default=None, help="Custom GitHub API base URL.")
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=int(user_cfg.get("width", 980)),
+        help="Window width in pixels.",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=int(user_cfg.get("height", 860)),
+        help="Window height in pixels.",
+    )
+    parser.add_argument("--token", default=user_cfg.get("token"), help="GitHub Personal Access Token.")
+    parser.add_argument(
+        "--pass-path",
+        default=user_cfg.get("pass_path"),
+        help="Password-store entry path for GitHub token.",
+    )
+    parser.add_argument(
+        "--api-url",
+        default=user_cfg.get("api_url"),
+        help="Custom GitHub API base URL.",
+    )
     parser.add_argument(
         "--inline",
         dest="no_inline",
         action="store_false",
-        default=True,
+        default=bool(user_cfg.get("no_inline", True)),
         help="Inline styles instead of passing --no-inline to grip.",
     )
     parser.add_argument(
@@ -197,7 +318,12 @@ def main():
         action="store_true",
         help="Clear grip cached styles and exit.",
     )
-    parser.add_argument("--debug", action="store_true", help="Enable WebKit debug inspector.")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=bool(user_cfg.get("debug", False)),
+        help="Enable WebKit debug inspector.",
+    )
     parser.add_argument("--color", choices=["auto", "always", "never"], default="auto")
     parser.add_argument("--no-color", action="store_true")
 

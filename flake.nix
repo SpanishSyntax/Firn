@@ -107,6 +107,7 @@
           ...
         }: let
           cfg = config.programs.firn;
+          tomlFormat = pkgs.formats.toml {};
           system = pkgs.stdenv.hostPlatform.system;
           defaultFirn = self.packages.${system}.default;
         in {
@@ -118,10 +119,20 @@
               default = defaultFirn;
               description = "The Firn package to use.";
             };
+
+            settings = lib.mkOption {
+              type = tomlFormat.type;
+              default = {};
+              description = "Configuration written to ~/.config/firn/firn.toml.";
+            };
           };
 
           config = lib.mkIf cfg.enable {
             home.packages = [cfg.package];
+
+            xdg.configFile."firn/firn.toml" = lib.mkIf (cfg.settings != {}) {
+              source = tomlFormat.generate "firn.toml" cfg.settings;
+            };
           };
         };
       };
