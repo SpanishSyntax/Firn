@@ -4,17 +4,25 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    rime = {
+      url = "github:SpanishSyntax/Rime";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
+    rime,
   }: let
     systems = flake-utils.lib.defaultSystems;
   in
     flake-utils.lib.eachSystem systems (system: let
-      pkgs = import nixpkgs {inherit system;};
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [rime.overlays.default];
+      };
       firnPackage = pkgs.callPackage ./default.nix {};
     in {
       packages = {
@@ -38,6 +46,7 @@
           python3
           python3Packages.setuptools
           python3Packages.pytest
+          python3Packages.rime
           python3Packages.grip
           python3Packages.pywebview
           python3Packages.pygobject3

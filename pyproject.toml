@@ -22,7 +22,9 @@ classifiers = [
   "Topic :: Text Processing :: Markup :: Markdown",
   "Topic :: Utilities",
 ]
-dependencies = []
+dependencies = [
+  "rime",
+]
 
 [project.optional-dependencies]
 test = [
