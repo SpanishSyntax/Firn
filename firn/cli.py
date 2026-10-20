@@ -142,6 +142,13 @@ def discover_markdown_target(raw_path: str | None) -> Path:
     )
 
     if not md_files:
+        lines = [
+            f"{ui.bold('Firn Version:')}     {ui.bold_cyan(f'v{__version__}')} (Engine: Grip / GFM Desktop Viewer)",
+            f"{ui.bold('Active Directory:')} {search_dir}",
+            f"{ui.bold('Target Document:')}  {ui.dim('No markdown documents (*.md) found in current directory')}",
+        ]
+        ui.panel("FIRN GFM DOCUMENT VIEWER", lines)
+
         if sys.stdin.isatty():
             action = ui.select(
                 f"No Markdown document found in '{search_dir.name}'. What would you like to do?",
@@ -345,7 +352,15 @@ def main():
 
     target_md = discover_markdown_target(args.path)
 
-    ui.header(f"{ui.app_name.upper()} GFM DOCUMENT VIEWER", width=76)
+    mode_str = "GitHub Box" if args.github_mode else "GFM Standard"
+    theme_str = args.theme.capitalize()
+    frame_str = "Frameless" if args.frameless else f"{args.width}x{args.height}"
+    lines = [
+        f"{ui.bold('Target Document:')}  {ui.cyan(str(target_md))} ({target_md.stat().st_size:,} bytes)",
+        f"{ui.bold('Viewer Mode:')}      {ui.green(mode_str)} | Theme: {ui.magenta(theme_str)} | Window: {frame_str}",
+        f"{ui.bold('Rendering Engine:')} Grip (Local WebKit / PyWebView runtime)",
+    ]
+    ui.panel("FIRN GFM DOCUMENT VIEWER", lines)
 
     config = RenderConfig(
         target_path=target_md,
