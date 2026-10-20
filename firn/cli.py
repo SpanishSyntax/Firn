@@ -17,7 +17,7 @@ from firn.core import (
     resolve_github_token,
 )
 from firn.discovery import discover_markdown_target, scan_recursive_markdown
-from firn.ui import ui
+from firn.ui import add_color_args, handle_color_args, ui
 from firn.viewer import launch_viewer
 
 __all__ = [
@@ -58,17 +58,6 @@ def clear_grip_cache() -> int:
             sp.stop("Error executing grip.", ok=False)
             ui.error(f"Cannot run grip: {exc}")
             return 1
-
-
-def handle_color_args(argv: Sequence[str] | None = None) -> None:
-    args = argv if argv is not None else sys.argv[1:]
-    for i, arg in enumerate(args):
-        if arg == "--no-color":
-            ui.set_color_mode("never")
-        elif arg.startswith("--color="):
-            ui.set_color_mode(arg.split("=", 1)[1])
-        elif arg == "--color" and i + 1 < len(args):
-            ui.set_color_mode(args[i + 1])
 
 
 def print_help() -> None:
@@ -135,8 +124,7 @@ def _build_parser(user_cfg: dict[str, Any]) -> argparse.ArgumentParser:
     parser.add_argument("--no-inline", dest="no_inline", action="store_true")
     parser.add_argument("--clear-cache", action="store_true")
     parser.add_argument("--debug", action="store_true", default=bool(user_cfg.get("debug", False)))
-    parser.add_argument("--color", choices=["auto", "always", "never"], default="auto")
-    parser.add_argument("--no-color", action="store_true")
+    add_color_args(parser)
     return parser
 
 
