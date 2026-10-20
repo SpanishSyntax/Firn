@@ -37,6 +37,7 @@
         packages = with pkgs; [
           python3
           python3Packages.setuptools
+          python3Packages.pytest
           python3Packages.grip
           python3Packages.pywebview
           python3Packages.pygobject3
